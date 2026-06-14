@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import random
+import json
 
 from player_controller import (
     play_song,
@@ -50,6 +51,34 @@ st.info(
 # ----------------------------------
 # Playlist loader
 # ----------------------------------
+def load_liked_songs():
+
+    try:
+
+        with open(
+            "liked_songs.json",
+            "r"
+        ) as f:
+
+            return json.load(f)
+
+    except:
+
+        return []
+
+
+def save_liked_songs(songs):
+
+    with open(
+        "liked_songs.json",
+        "w"
+    ) as f:
+
+        json.dump(
+            songs,
+            f,
+            indent=4
+        )
 
 def load_m3u_playlist(
     music_folder,
@@ -211,7 +240,16 @@ if "current_index" not in st.session_state:
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
 
-if has_song_ended():
+if "liked_songs" not in st.session_state:
+
+    st.session_state.liked_songs = (
+        load_liked_songs()
+    )
+
+ended = has_song_ended()
+
+
+if ended:
 
     st.session_state.button_command = (
         "next song"
@@ -323,7 +361,7 @@ if len(songs) > 0:
 
         st.dataframe(
             filtered_df,
-            use_container_width=True
+            width="stretch"
         )
 
     else:
@@ -332,7 +370,7 @@ if len(songs) > 0:
 
         st.dataframe(
             df,
-            use_container_width=True
+            width="stretch"
         )
 
     # ------------------------------
@@ -422,7 +460,7 @@ if len(songs) > 0:
 
         st.dataframe(
             ai_df,
-            use_container_width=True
+            width="stretch"
         )
 
     # ------------------------------
@@ -642,9 +680,90 @@ if user_command:
 
             st.dataframe(
                 chat_df,
-                use_container_width=True
+                width="stretch"
+            )
+        
+        elif command == "show liked songs":
+
+            liked = st.session_state.liked_songs
+
+            if liked:
+
+                response = "❤️ Liked Songs\n\n"
+
+                for i, song in enumerate(
+                    liked,
+                    start=1
+                ):
+
+                    response += (
+                        f"{i}. "
+                        f"{song['title']}\n"
+                    )
+
+            else:
+
+                response = (
+                    "No liked songs yet."
+                )
+
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": response
+                }
             )
 
+
+        elif command == "like this song":
+            
+            if st.session_state.current_song:
+
+                song = st.session_state.current_song
+
+                exists = False
+
+                for liked in st.session_state.liked_songs:
+
+                    if liked["title"] == song["title"]:
+
+                        exists = True
+                        break
+
+                if not exists:
+
+                    st.session_state.liked_songs.append(
+                        song
+                    )
+
+                    save_liked_songs(
+                        st.session_state.liked_songs
+                    )
+
+                    response = (
+                        f"❤️ Added "
+                        f"{song['title']} "
+                        f"to liked songs"
+                    )
+
+                else:
+
+                    response = (
+                        "❤️ Song already liked"
+                    )
+
+                    st.session_state.messages.append(
+                        {
+                            "role": "assistant",
+                            "content": response
+                        }
+                    )
+            
+            else:
+
+                response = (
+                    "❌ No song playing"
+                )
         # --------------------------
         # Statistics
         # --------------------------
@@ -1007,6 +1126,11 @@ if user_command:
         # --------------------------
 
         elif "next song" in command or "skip" in command:
+            
+            print(
+                "NEXT SONG:",
+                st.session_state.current_song["title"]
+            )
 
             current_song = None
 
@@ -1476,6 +1600,44 @@ if user_command:
                     )
 
                     
+
+        elif command == "play liked songs":
+
+            liked = st.session_state.liked_songs
+
+            if len(liked) > 0:
+
+                st.session_state.current_playlist = liked
+
+                st.session_state.current_index = 0
+
+                st.session_state.current_song = liked[0]
+
+                play_song(
+                    liked[0]["path"]
+                )
+
+                st.session_state.is_paused = False
+
+                response = (
+                    "▶ Playing Liked Songs"
+                )
+
+            else:
+
+                response = (
+                    "❌ No liked songs found."
+                )
+
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": response
+                }
+            )
+
+            st.rerun()
+
 
                     
         # --------------------------
