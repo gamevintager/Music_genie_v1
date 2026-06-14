@@ -516,9 +516,17 @@ if "button_command" in st.session_state:
 
 if st.session_state.get("control") == "playpause":
 
-    st.session_state.is_paused = (
-        not st.session_state.is_paused
-    )
+    if st.session_state.is_paused:
+
+        pause_song()   # VLC toggle resume
+
+        st.session_state.is_paused = False
+
+    else:
+
+        pause_song()   # VLC toggle pause
+
+        st.session_state.is_paused = True
 
     del st.session_state.control
 
@@ -545,10 +553,6 @@ if user_command:
     intent = get_intent(user_command)
 
     intent = intent.strip().upper()
-
-    print("AI Intent:", repr(intent))
-
-    print("AI Intent:", intent)
 
     # --------------------------
     # YES to recommendation
@@ -752,12 +756,12 @@ if user_command:
                         "❤️ Song already liked"
                     )
 
-                    st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": response
-                        }
-                    )
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response
+                    }
+                )
             
             else:
 
@@ -1127,11 +1131,6 @@ if user_command:
 
         elif "next song" in command or "skip" in command:
             
-            print(
-                "NEXT SONG:",
-                st.session_state.current_song["title"]
-            )
-
             current_song = None
 
             # Queue has highest priority
@@ -1179,12 +1178,15 @@ if user_command:
                     current_song["path"]
                 )
 
-                st.rerun()
-                
-                    
+                response = f"⏭ Playing {current_song['title']}"
 
-
-                            
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response
+                    }
+                )
+                                                
             # Nothing available
             else:
 
@@ -1221,6 +1223,15 @@ if user_command:
 
                 play_song(
                     current_song["path"]
+                )
+
+                response = f"⏮ Playing {current_song['title']}"
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response
+                    }
                 )
 
                 st.rerun()
@@ -1261,6 +1272,8 @@ if user_command:
                 play_song(
                     current_song["path"]
                 )
+
+                st.session_state.is_paused = False
 
                 st.session_state.current_song = current_song
 
@@ -1303,6 +1316,7 @@ if user_command:
                 yt_song = get_audio_stream(
                 song_name
                 )
+                print("YT SONG =", yt_song)
 
                 if yt_song:
 
@@ -1557,6 +1571,8 @@ if user_command:
                             playlist[0]["path"]
                         )
 
+                        st.session_state.is_paused = False
+
                         response = (
                             f"▶ Playing playlist: {playlist_file}"
                         )
@@ -1719,20 +1735,18 @@ if user_command:
                         yt_song["stream_url"]
                     )
 
-                    
-
-                play_song(
-                    yt_song["stream_url"]
-                )
-
-                st.session_state.current_song = {
-                    "title": yt_song["title"],
-                    "path": yt_song["stream_url"],
-                    "source": "youtube",
-                    "duration": yt_song.get(
-                        "duration",
-                        "Unknown")
-                }
+                    st.session_state.current_song = {
+                        "title": yt_song["title"],
+                        "path": yt_song["stream_url"],
+                        "source": "youtube",
+                        "duration": yt_song.get(
+                            "duration",
+                            "Unknown"
+                        ),
+                        "thumbnail": yt_song.get(
+                            "thumbnail"
+                        )
+                    }
 
                 response = (
                     f"▶ Playing from YouTube: "
@@ -1908,21 +1922,27 @@ st_autorefresh(
 
 st.divider()
 
-st.subheader("🎵 Music Player \n")
+st.subheader("🎵 Music Player \n ")
+st.write("")
 
 if st.session_state.current_song is not None:
 
     song = st.session_state.current_song
 
     if song.get("source") == "youtube":
+        
 
         metadata = {
             "title": song["title"],
             "artist": "YouTube",
             "album": None
         }
+        
 
-        album_art = None
+
+        album_art = song.get(
+            "thumbnail"
+        )
 
     else:
 
@@ -1934,17 +1954,17 @@ if st.session_state.current_song is not None:
             song["path"]
         )
 
-    left_pad, cover_col, info_col, right_pad = st.columns(
-        [1, 2, 2, 3]
+    player_col1, player_col2 = st.columns(
+        [1, 1]
     )
 
-    with cover_col:
+    with player_col1:
 
         if album_art:
 
             st.image(
                 album_art,
-                width=320
+                width="stretch"
             )
 
         else:
@@ -1953,93 +1973,125 @@ if st.session_state.current_song is not None:
                 "No Album Art"
             )
 
-    with info_col:
-
-        st.write("")
-        st.write("")
-        st.write("")
+    with player_col2:
 
 
         st.markdown(
-            f"# 🎵 {metadata['title'] or song['title']}"
+            f"### 🎵 {metadata['title'] or song['title']}"
         )
+        st.write("")
+
+        if metadata["artist"]:
+            st.write(" ")
+            st.caption("🌐 YouTube Audio")
+
+        if metadata["album"]:
+
+            st.write(
+                f"💿 {metadata['album']}"
+            )
 
         if len(st.session_state.current_playlist) > 0:
 
-            st.write(
-                f"🎼 Track "
+            st.caption(
+                f"Track "
                 f"{st.session_state.current_index + 1}"
                 f"/"
                 f"{len(st.session_state.current_playlist)}"
             )
+
+
+        st.markdown("---")
+        control1, control2, control3, control4, control5, control6 = st.columns(
+            [1, 1, 1, 1, 1, 1],
+            gap="small"
+        )
         
+        with control1:
+            if st.button("🔀"):
+                st.session_state.shuffle_mode = (
+                    not st.session_state.shuffle_mode
+                )
+                st.rerun()
 
-        if metadata["artist"]:
-            st.write(
-                f"👤 {metadata['artist']}"
-            )
+        with control2:
 
-        if metadata["album"]:
-            st.write(
-                f"💿 {metadata['album']}"
+            if st.button("⏮"):
+
+                st.session_state.button_command = (
+                    "previous song"
+                )
+
+                st.rerun()
+
+
+        play_icon = (
+            "▶️"
+            if st.session_state.get(
+                "is_paused",
+                False
             )
+            else "⏸️"
+        )
+
+        with control3:
+
+            if st.button(play_icon):
+                st.session_state.control = "playpause"
+                st.rerun()
+
+        with control4:
+
+            if st.button("⏭"):
+                st.session_state.button_command = (
+                    "next song"
+                )
+
+                st.rerun()
+
+        with control5:
+
+            if st.button("🔁"):
+                st.session_state.button_command = (
+                    "replay"
+                )
+
+                st.rerun()
+
+        with control6:
+
+            if st.button("❤️"):
+
+                if st.session_state.current_song:
+
+                    song = st.session_state.current_song
+                    exists = any(
+                        liked["title"] == song["title"]
+                        for liked in st.session_state.liked_songs
+                    )
+
+                    if not exists:
+
+                        st.session_state.liked_songs.append(
+                            song
+                        )
+
+                        save_liked_songs(
+                            st.session_state.liked_songs
+                        )
+
+                        st.toast(
+                            "❤️ Added to liked songs"
+                        )
+
+                    else:
+
+                        st.toast(
+                            "❤️ Already liked"
+                        )
+
             
-left_space, col1, col2, col3, col4, col5, right_space = st.columns(
-    [3,1,1,1,1,1,3]
-)
-
-
-with col1:
-
-    if st.button("🔀"):
-        st.session_state.shuffle_mode = (
-            not st.session_state.shuffle_mode
-        )
-        st.rerun()
-
-with col2:
-
-    if st.button("⏮"):
-
-        st.session_state.button_command = (
-            "previous song"
-        )
-
-        st.rerun()
-
-
-play_icon = (
-    "▶️"
-    if st.session_state.get(
-        "is_paused",
-        False
-    )
-    else "⏸️"
-)
-
-with col3:
-
-    if st.button(play_icon):
-        st.session_state.control = "playpause"
-        st.rerun()
-
-with col4:
-
-    if st.button("⏭"):
-        st.session_state.button_command = (
-            "next song"
-        )
-
-        st.rerun()
-
-with col5:
-
-    if st.button("🔁"):
-        st.session_state.button_command = (
-            "replay"
-        )
-
-        st.rerun()
+            
 
 st.markdown("---")
 

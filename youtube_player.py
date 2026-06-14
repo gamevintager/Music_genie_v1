@@ -20,7 +20,13 @@ def search_youtube(query):
         return {
             "title": entry["title"],
             "url": entry["webpage_url"],
-            "duration": entry.get("duration", "Unknown")
+            "duration": entry.get(
+                "duration",
+                "Unknown"
+            ),
+            "thumbnail": entry.get(
+                "thumbnail"
+            )
         }
 
 
@@ -41,7 +47,40 @@ def get_audio_stream(query):
 
         entry = info["entries"][0]
 
+        def clean_title(title):
+
+            remove_words = [
+                "(Official Audio)",
+                "(Official Video)",
+                "[Official Audio]",
+                "[Official Video]",
+                "(Lyrics)",
+                "[Lyrics]",
+                "(Visualizer)",
+                "[Visualizer]",
+                "Official Audio",
+                "Official Video",
+                "Lyrical Video",
+                "HD Video"
+            ]
+
+            for word in remove_words:
+                title = title.replace(word, "")
+
+            title = title.split("|")[0].strip()
+
+            return title
+
+        title = clean_title(entry["title"])
+
         return {
-            "title": entry["title"],
-            "stream_url": entry["url"]
+            "title": title,
+            "stream_url": entry["url"],
+            "thumbnail": entry.get(
+                "thumbnail"
+            ),
+            "duration": entry.get(
+                "duration",
+                "Unknown"
+            )
         }
