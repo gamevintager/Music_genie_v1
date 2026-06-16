@@ -1,7 +1,9 @@
 import vlc
 import time
 
-player = vlc.MediaPlayer()
+instance = vlc.Instance()
+
+player = instance.media_player_new()
 
 current_path = None
 
@@ -25,6 +27,28 @@ def has_song_ended():
 
     return False
 
+def get_current_time():
+
+    current = player.get_time()
+
+    if current < 0:
+        return 0
+
+    return current // 1000
+
+last_duration = 0
+
+def get_duration():
+
+    global last_duration
+
+    duration = player.get_length()
+
+    if duration > 0:
+        last_duration = duration // 1000
+
+    return last_duration
+
 def play_song(song_path):
 
     global current_path
@@ -40,6 +64,10 @@ def play_song(song_path):
     player.set_media(media)
 
     player.play()
+
+    print(player.get_state())
+
+    time.sleep(1)
 
 
 def pause_song():

@@ -2,16 +2,20 @@ import streamlit as st
 import pandas as pd
 import os
 import random
+import html
 import json
-
+import time
 from player_controller import (
     play_song,
     pause_song,
     stop_song,
     is_playing,
     song_finished,
-    has_song_ended
+    has_song_ended,
+    get_current_time,
+    get_duration
 )
+from lyrics import get_lyrics
 from youtube_player import get_audio_stream
 from mutagen.id3 import ID3
 from mutagen import File
@@ -37,6 +41,56 @@ st.set_page_config(
     page_icon="🎵",
     layout="wide"
 )
+
+st.markdown("""
+<style>
+
+/* Main App */
+.stApp{
+    background:
+    linear-gradient(
+        135deg,
+        #090012,
+        #12001f,
+        #1d0930
+    );
+}
+
+/* Headers */
+h1,h2,h3{
+    color:white;
+}
+
+/* Buttons */
+.stButton button{
+    background:#241033;
+    color:white;
+    border:1px solid #ff4fd8;
+    border-radius:18px;
+    height:55px;
+}
+
+/* Hover */
+.stButton button:hover{
+    border-color:#ff7ce8;
+    box-shadow:
+    0 0 15px #ff4fd8;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"]{
+    background:
+    linear-gradient(
+        180deg,
+        #12001f,
+        #1a0828
+    );
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
 
 responses = [
     "Let's take a look at your library.",
@@ -66,6 +120,13 @@ def load_liked_songs():
 
         return []
 
+def format_time(seconds):
+
+    minutes = int(seconds // 60)
+
+    seconds = int(seconds % 60)
+
+    return f"{minutes:02}:{seconds:02}"
 
 def save_liked_songs(songs):
 
@@ -239,6 +300,9 @@ if "current_index" not in st.session_state:
 
 if "current_song" not in st.session_state:
     st.session_state.current_song = None
+
+if "lyrics" not in st.session_state:
+    st.session_state.lyrics = ""
 
 if "liked_songs" not in st.session_state:
 
@@ -638,6 +702,10 @@ if user_command:
                 generated[0]["path"]
             )
 
+            st.session_state.lyrics = get_lyrics(
+                generated[0]["title"]
+            )
+
             first_song=generated[0]
 
             playlist_text = "\n".join(
@@ -840,6 +908,10 @@ if user_command:
                 generated[0]["path"]
             )    
             
+            st.session_state.lyrics = get_lyrics(
+                generated[0]["title"]
+            )
+
             response = (
                 f"💪 Workout playlist created!"
             )
@@ -873,6 +945,9 @@ if user_command:
                 generated[0]["path"]
             )
             
+            st.session_state.lyrics = get_lyrics(
+                generated[0]["title"]
+            )
 
 
             response = (
@@ -911,6 +986,9 @@ if user_command:
                 generated[0]["path"]
             )
 
+            st.session_state.lyrics = get_lyrics(
+                generated[0]["title"]
+            )
             
 
             response = (
@@ -1029,6 +1107,10 @@ if user_command:
             play_song(
                 found_song["path"]
             )
+            
+            st.session_state.lyrics = get_lyrics(
+                found_song["title"]
+            )
 
             response = (
                 f"🎲 Playing random song:\n\n"
@@ -1068,7 +1150,10 @@ if user_command:
             play_song(
                 found_song["path"]
             )
-
+            
+            st.session_state.lyrics = get_lyrics(
+                found_song["title"]
+            )
 
             response = (
                 f"⚡ Playing shortest song:\n\n"
@@ -1110,6 +1195,9 @@ if user_command:
                 found_song["path"]
             )
             
+            st.session_state.lyrics = get_lyrics(
+                found_song["title"]
+            )
 
             response = (
                 f"🏆 Playing longest song:\n\n"
@@ -1178,6 +1266,10 @@ if user_command:
                     current_song["path"]
                 )
 
+                st.session_state.lyrics = get_lyrics(
+                    current_song["title"]
+                )
+
                 response = f"⏭ Playing {current_song['title']}"
 
                 st.session_state.messages.append(
@@ -1223,6 +1315,10 @@ if user_command:
 
                 play_song(
                     current_song["path"]
+                )
+
+                st.session_state.lyrics = get_lyrics(
+                    current_song["title"]
                 )
 
                 response = f"⏮ Playing {current_song['title']}"
@@ -1271,6 +1367,10 @@ if user_command:
                 )
                 play_song(
                     current_song["path"]
+                )
+
+                st.session_state.lyrics = get_lyrics(
+                    current_song["title"]
                 )
 
                 st.session_state.is_paused = False
@@ -1527,6 +1627,10 @@ if user_command:
                     playlist[0]["path"]
                 )
 
+                st.session_state.lyrics = get_lyrics(
+                    playlist[0]["title"]
+                )
+
                 st.session_state.is_paused = False
             
 
@@ -1569,6 +1673,10 @@ if user_command:
                         st.session_state.current_song = playlist[0]
                         play_song(
                             playlist[0]["path"]
+                        )
+
+                        st.session_state.lyrics = get_lyrics(
+                            playlist[0]["title"]
                         )
 
                         st.session_state.is_paused = False
@@ -1631,6 +1739,10 @@ if user_command:
 
                 play_song(
                     liked[0]["path"]
+                )
+
+                st.session_state.lyrics = get_lyrics(
+                    liked[0]["title"]
                 )
 
                 st.session_state.is_paused = False
@@ -1696,7 +1808,11 @@ if user_command:
                 play_song(
                    found_song["path"]
                 )
-                
+
+                st.session_state.lyrics = get_lyrics(
+                    found_song["title"]
+                )
+
                 response = (
                     f"▶ Playing {found_song['title']}"
                 )
@@ -1735,6 +1851,17 @@ if user_command:
                         yt_song["stream_url"]
                     )
 
+                    title = yt_song["title"]
+                    artist = ""
+
+                    if " - " in title:
+                        artist, title = title.split(" - ", 1)
+
+                    st.session_state.lyrics = get_lyrics(
+                        title.strip(),
+                        artist.
+                        strip()
+                    )
                     st.session_state.current_song = {
                         "title": yt_song["title"],
                         "path": yt_song["stream_url"],
@@ -1760,7 +1887,6 @@ if user_command:
                     }
                 )
 
-                st.rerun()
    
 
                     
@@ -1872,8 +1998,20 @@ with st.sidebar:
 
             if i == current_index:
 
-                st.success(
-                    f"🎵 {song['title']}"
+                st.markdown(
+                f"""
+                <div style="
+                background:#241033;
+                border-left:4px solid #ff4fd8;
+                padding:12px;
+                border-radius:12px;
+                color:white;
+                font-weight:bold;
+                ">
+                🎵 {song['title']}
+                </div>
+                """,
+                unsafe_allow_html=True
                 )
 
             else:
@@ -1921,8 +2059,6 @@ st_autorefresh(
 )
 
 st.divider()
-
-st.subheader("🎵 Music Player \n ")
 st.write("")
 
 if st.session_state.current_song is not None:
@@ -1930,14 +2066,24 @@ if st.session_state.current_song is not None:
     song = st.session_state.current_song
 
     if song.get("source") == "youtube":
-        
+
+        song_title = song["title"]
+
+        artist = ""
+        title = song_title
+
+        if " - " in song_title:
+
+             title, artist = song_title.split(
+                " - ",
+                1
+            )
 
         metadata = {
-            "title": song["title"],
-            "artist": "YouTube",
+            "title": title,
+            "artist": artist,
             "album": None
         }
-        
 
 
         album_art = song.get(
@@ -1955,7 +2101,7 @@ if st.session_state.current_song is not None:
         )
 
     player_col1, player_col2 = st.columns(
-        [1, 1]
+        [1.2, 1]
     )
 
     with player_col1:
@@ -1964,7 +2110,7 @@ if st.session_state.current_song is not None:
 
             st.image(
                 album_art,
-                width="stretch"
+                use_container_width=True
             )
 
         else:
@@ -1977,14 +2123,62 @@ if st.session_state.current_song is not None:
 
 
         st.markdown(
-            f"### 🎵 {metadata['title'] or song['title']}"
+            f"""
+            <h1 style="
+            color:white;
+            margin-bottom:5px;
+            ">
+            {metadata['title'] or song['title']}
+            </h1>
+            """,
+            unsafe_allow_html=True
         )
+
+        
+
+        artist = metadata.get("artist", "")
+
+        if artist:
+
+            st.markdown(
+                f"""
+                <h3 style="
+                color:#ff4fd8;
+                margin-top:0;
+                ">
+                {artist}
+                </h3>
+                """,
+                unsafe_allow_html=True
+            )
+
         st.write("")
 
-        if metadata["artist"]:
-            st.write(" ")
-            st.caption("🌐 YouTube Audio")
+        
 
+        if song.get("source") == "youtube":
+            badge = "🌐 YouTube Audio"
+        else:
+            badge = "📁 Local File"
+
+        st.markdown(
+        f"""
+        <div style="
+        display:inline-block;
+        padding:8px 16px;
+        background:#241033;
+        border:1px solid #ff4fd8;
+        border-radius:20px;
+        margin-bottom:20px;
+        ">
+        {badge}
+        </div>
+        """,
+        unsafe_allow_html=True
+        )
+
+        st.write("")
+            
         if metadata["album"]:
 
             st.write(
@@ -1998,105 +2192,139 @@ if st.session_state.current_song is not None:
                 f"{st.session_state.current_index + 1}"
                 f"/"
                 f"{len(st.session_state.current_playlist)}"
-            )
+            )   
 
-
-        st.markdown("---")
-        control1, control2, control3, control4, control5, control6 = st.columns(
-            [1, 1, 1, 1, 1, 1],
-            gap="small"
-        )
+    st.write("")
         
-        with control1:
-            if st.button("🔀"):
-                st.session_state.shuffle_mode = (
-                    not st.session_state.shuffle_mode
-                )
-                st.rerun()
-
-        with control2:
-
-            if st.button("⏮"):
-
-                st.session_state.button_command = (
-                    "previous song"
-                )
-
-                st.rerun()
-
-
-        play_icon = (
-            "▶️"
-            if st.session_state.get(
-                "is_paused",
-                False
+    left, c1, c2, c3, c4, c5, c6, right = st.columns(
+    [2,1,1,1,1,1,1,2]
+)
+    
+    with c1:
+        if st.button("🔀"):
+            st.session_state.shuffle_mode = (
+                not st.session_state.shuffle_mode
             )
-            else "⏸️"
+            st.rerun()
+
+    with c2:
+
+        if st.button("⏮"):
+
+            st.session_state.button_command = (
+                "previous song"
+            )
+
+            st.rerun()
+
+
+    play_icon = (
+        "▶️"
+        if st.session_state.get(
+            "is_paused",
+            False
         )
+        else "⏸️"
+    )
 
-        with control3:
+    with c3:
 
-            if st.button(play_icon):
-                st.session_state.control = "playpause"
-                st.rerun()
+        if st.button(play_icon):
+            st.session_state.control = "playpause"
+            st.rerun()
 
-        with control4:
+    with c4:
 
-            if st.button("⏭"):
-                st.session_state.button_command = (
-                    "next song"
+        if st.button("⏭"):
+            st.session_state.button_command = (
+                "next song"
+            )
+
+            st.rerun()
+
+    with c5:
+
+        if st.button("🔁"):
+            st.session_state.button_command = (
+                "replay"
+            )
+
+            st.rerun()
+
+    with c6:
+
+        if st.button("❤️"):
+
+            if st.session_state.current_song:
+
+                song = st.session_state.current_song
+                exists = any(
+                    liked["title"] == song["title"]
+                    for liked in st.session_state.liked_songs
                 )
 
-                st.rerun()
+                if not exists:
 
-        with control5:
-
-            if st.button("🔁"):
-                st.session_state.button_command = (
-                    "replay"
-                )
-
-                st.rerun()
-
-        with control6:
-
-            if st.button("❤️"):
-
-                if st.session_state.current_song:
-
-                    song = st.session_state.current_song
-                    exists = any(
-                        liked["title"] == song["title"]
-                        for liked in st.session_state.liked_songs
+                    st.session_state.liked_songs.append(
+                        song
                     )
 
-                    if not exists:
+                    save_liked_songs(
+                        st.session_state.liked_songs
+                    )
 
-                        st.session_state.liked_songs.append(
-                            song
-                        )
+                    st.toast(
+                        "❤️ Added to liked songs"
+                    )
 
-                        save_liked_songs(
-                            st.session_state.liked_songs
-                        )
+                else:
 
-                        st.toast(
-                            "❤️ Added to liked songs"
-                        )
-
-                    else:
-
-                        st.toast(
-                            "❤️ Already liked"
-                        )
-
-            
-            
-
-st.markdown("---")
+                    st.toast(
+                        "❤️ Already liked"
+                    )
+        
+    st.write("")
 
 
-    
+    current_time = max(0, get_current_time())
+
+    total_duration = max(1, get_duration())
+
+    progress = min(
+        current_time / total_duration,
+        1.0
+    )
+
+    st.progress(progress)
+
+    t1, t2 = st.columns(2)
+
+    with t1:
+        st.caption(format_time(current_time))
+
+    with t2:
+        st.markdown(
+            f"""
+            <div style="
+            text-align:right;
+            color:#cccccc;
+            ">
+            {format_time(total_duration)}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )         
+
+    st.markdown("""
+    <style>
+
+    .stProgress > div > div {
+        height:8px;
+        border-radius:20px;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
     
 if st.session_state.shuffle_mode:
 
@@ -2105,3 +2333,59 @@ if st.session_state.shuffle_mode:
 else:
 
     st.caption("🔀 Shuffle OFF")
+
+st.markdown("---")
+
+st.markdown("""
+<h2 style="
+color:white;
+margin-bottom:10px;
+">
+🎤 Lyrics
+</h2>
+""",
+unsafe_allow_html=True)
+
+st.markdown("""
+<div style="
+width:120px;
+height:3px;
+background:#ff4fd8;
+margin-bottom:20px;
+"></div>
+""",
+unsafe_allow_html=True)
+
+lyrics = st.session_state.get(
+    "lyrics",
+    "No lyrics available."
+)
+
+print(repr(lyrics))
+
+with st.container():
+
+    st.markdown("""
+    <style>
+    .lyrics-box {
+        background: linear-gradient(
+            135deg,
+            rgba(255,79,216,0.18),
+            rgba(255,255,255,0.06)
+        );
+        border:1px solid rgba(255,79,216,0.35);
+        border-radius:24px;
+        padding:20px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div class="lyrics-box">
+        <pre>{lyrics}</pre>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
