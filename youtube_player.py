@@ -72,10 +72,12 @@ def get_audio_stream(query):
             return title
 
         title = clean_title(entry["title"])
-
+        print("STREAM URL:", entry.get("url"))
+        print("ENTRY KEYS:", entry.keys())
+        print("TITLE:", title)
         return {
             "title": title,
-            "stream_url": entry["url"],
+            "stream_url": entry.get("url"),
             "thumbnail": entry.get(
                 "thumbnail"
             ),

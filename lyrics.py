@@ -1,42 +1,67 @@
 import requests
+import time
 
 
 def get_lyrics(title, artist=""):
-    
-    try:
 
-        params = {
-            "track_name": title,
-            "artist_name": artist
-        }
+    print("=" * 50)
+    print("LYRICS REQUEST")
+    print("TITLE:", title)
+    print("ARTIST:", artist)
 
-        response = requests.get(
-            "https://lrclib.net/api/search",
-            params=params,
-            timeout=10
-        )
+    params = {
+        "track_name": title,
+        "artist_name": artist
+    }
 
-        print("STATUS:", response.status_code)
+    for attempt in range(3):
 
-        if response.status_code == 200:
+        try:
 
-            results = response.json()
+            response = requests.get(
+                "https://lrclib.net/api/search",
+                params=params,
+                timeout=20
+            )
 
-            print("RESULTS:", len(results))
+            print("STATUS:", response.status_code)
+            print("URL:", response.url)
 
-            if results:
+            if response.status_code == 200:
 
-                song = results[0]
+                results = response.json()
 
-                print(song)
+                print("RESULTS:", len(results))
 
-                if song.get("plainLyrics"):
-                    return song["plainLyrics"]
+                if results:
 
-        return "Lyrics not found."
+                    song = results[0]
 
-    except Exception as e:
+                    print(
+                        "FOUND:",
+                        song.get("trackName"),
+                        "-",
+                        song.get("artistName")
+                    )
 
-        print("ERROR:", e)
+                    if song.get("plainLyrics"):
 
-        return "Unable to fetch lyrics."
+                        return song["plainLyrics"]
+
+            return "Lyrics not found."
+
+        except Exception as e:
+
+            print(
+                f"ATTEMPT {attempt + 1} FAILED:",
+                e
+            )
+
+            if attempt < 2:
+
+                print("RETRYING IN 2 SECONDS...")
+                time.sleep(2)
+
+            else:
+
+                return "Unable to fetch lyrics."

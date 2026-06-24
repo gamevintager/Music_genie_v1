@@ -13,6 +13,8 @@ def song_ended(event):
 
     global song_end_flag
 
+    print("SONG ENDED EVENT FIRED")
+    
     song_end_flag = True
 
 def has_song_ended():
@@ -52,6 +54,11 @@ def get_duration():
 def play_song(song_path):
 
     global current_path
+    global song_end_flag
+    
+    print("="*50)
+    print("PLAY REQUESTED")
+    print("PATH:", song_path)
 
     player.stop()
 
@@ -63,12 +70,28 @@ def play_song(song_path):
 
     player.set_media(media)
 
+    media.parse()
+
     player.play()
+    
+    time.sleep(2)
 
-    print(player.get_state())
+    print("STATE:", player.get_state())
+    print("IS PLAYING:", player.is_playing())
+    print("TIME:", player.get_time())
+    print("LENGTH:", player.get_length())
+    print("="*50)
 
-    time.sleep(1)
+    for i in range(10):
 
+        print(
+            "STATE:",
+            player.get_state(),
+            "LENGTH:",
+            player.get_length()
+        )
+
+        time.sleep(1)
 
 def pause_song():
 

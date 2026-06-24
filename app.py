@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import random
+import re
 import html
 import json
 import time
@@ -102,6 +103,10 @@ st.info(
     random.choice(responses)
 )
 
+@st.cache_data
+def build_df(songs):
+    return pd.DataFrame(songs)
+
 # ----------------------------------
 # Playlist loader
 # ----------------------------------
@@ -187,6 +192,89 @@ def load_m3u_playlist(
                 )
 
     return playlist
+
+
+# ----------------------------------
+# sync Helper
+# ----------------------------------
+
+def sync_current_song(song):
+
+    st.session_state.current_song = song
+
+    playlist = st.session_state.current_playlist
+
+    for i, s in enumerate(playlist):
+        if s["title"] == song["title"]:
+            st.session_state.current_index = i
+            return
+
+def get_cached_lyrics(title, artist=""):
+
+    key = f"{title}|{artist}"
+
+    if key in st.session_state.lyrics_cache:
+
+        print("CACHE HIT:", key)
+
+        return st.session_state.lyrics_cache[key]
+
+    print("FETCHING LYRICS:", key)
+    
+    print("FETCHING:", title, "|", artist)
+
+    lyrics = get_lyrics(title, artist)
+
+    if lyrics in [
+        "Lyrics not found.",
+        "Unable to fetch lyrics."
+    ]:
+
+        clean_title = (
+            title
+            .replace("ft.", "")
+            .replace("feat.", "")
+            .strip()
+        )
+
+        lyrics = get_lyrics(
+            clean_title,
+            artist
+        )
+
+    if lyrics not in [
+        "Lyrics not found.",
+        "Unable to fetch lyrics."
+    ]:
+
+        st.session_state.lyrics_cache[key] = lyrics
+
+    return lyrics
+
+def load_song_lyrics(song):
+
+    if song.get("source") == "youtube":
+
+        song_title = song["title"]
+
+        artist = ""
+        title = song_title
+
+        if " - " in song_title:
+
+            artist, title = song_title.split(
+                " - ",
+                1
+            )
+
+        return get_cached_lyrics(
+            title.strip(),
+            artist.strip()
+        )
+
+    return get_cached_lyrics(
+        song["title"]
+    )
 
 # ----------------------------------
 # Album Art Helper
@@ -304,6 +392,9 @@ if "current_song" not in st.session_state:
 if "lyrics" not in st.session_state:
     st.session_state.lyrics = ""
 
+if "lyrics_cache" not in st.session_state:
+    st.session_state.lyrics_cache = {}
+
 if "liked_songs" not in st.session_state:
 
     st.session_state.liked_songs = (
@@ -312,12 +403,11 @@ if "liked_songs" not in st.session_state:
 
 ended = has_song_ended()
 
-
 if ended:
 
-    st.session_state.button_command = (
-        "next song"
-    )
+    print("AUTO NEXT DETECTED")
+
+    st.session_state.button_command = "next song"
 
     st.rerun()
 
@@ -351,7 +441,7 @@ if len(songs) > 0:
 
     st.success(f"{len(songs)} songs found")
 
-    df = pd.DataFrame(songs)
+    df = build_df(songs)
 
     # ------------------------------
     # Statistics
@@ -598,6 +688,8 @@ if st.session_state.get("control") == "playpause":
 
     
 if user_command:
+    
+    intent = None
 
     # Store User Message
 
@@ -614,9 +706,32 @@ if user_command:
 
     command = user_command.lower().strip()
 
-    intent = get_intent(user_command)
+    # Fast commands (NO OLLAMA)
 
-    intent = intent.strip().upper()
+    if command in ["previous", "previous song", "back"]:
+        pass
+
+
+    elif command == "pause":
+        pause_song()
+        st.rerun()
+
+    elif command == "resume":
+        pause_song()
+        st.session_state.is_paused = False
+        st.rerun()
+
+    elif command == "show queue":
+        ...
+        
+    elif command == "show liked songs":
+        ...
+
+    # ONLY USE OLLAMA FOR COMPLEX REQUESTS
+    else:
+        intent = get_intent(user_command)
+
+        intent = intent.strip().upper()
 
     # --------------------------
     # YES to recommendation
@@ -679,9 +794,13 @@ if user_command:
             "tension"
         ]
 
-        if intent == "MOOD_STRESS" and any(
-            word in command
-            for word in stress_words
+        if (
+            intent
+            and intent == "MOOD_STRESS"
+            and any(
+                word in command
+                for word in stress_words
+            )
         ):
             generated = generate_playlist(
                 "Calming music",
@@ -702,8 +821,8 @@ if user_command:
                 generated[0]["path"]
             )
 
-            st.session_state.lyrics = get_lyrics(
-                generated[0]["title"]
+            st.session_state.lyrics = load_song_lyrics(
+                first_song
             )
 
             first_song=generated[0]
@@ -804,8 +923,10 @@ if user_command:
 
                 if not exists:
 
+                    liked_song = song.copy()
+
                     st.session_state.liked_songs.append(
-                        song
+                        liked_song
                     )
 
                     save_liked_songs(
@@ -908,8 +1029,8 @@ if user_command:
                 generated[0]["path"]
             )    
             
-            st.session_state.lyrics = get_lyrics(
-                generated[0]["title"]
+            st.session_state.lyrics = load_song_lyrics(
+                generated[0]
             )
 
             response = (
@@ -945,8 +1066,8 @@ if user_command:
                 generated[0]["path"]
             )
             
-            st.session_state.lyrics = get_lyrics(
-                generated[0]["title"]
+            st.session_state.lyrics = load_song_lyrics(
+                generated[0]
             )
 
 
@@ -986,8 +1107,8 @@ if user_command:
                 generated[0]["path"]
             )
 
-            st.session_state.lyrics = get_lyrics(
-                generated[0]["title"]
+            st.session_state.lyrics = load_song_lyrics(
+                generated[0]
             )
             
 
@@ -1108,8 +1229,8 @@ if user_command:
                 found_song["path"]
             )
             
-            st.session_state.lyrics = get_lyrics(
-                found_song["title"]
+            st.session_state.lyrics = load_song_lyrics(
+                found_song
             )
 
             response = (
@@ -1151,9 +1272,10 @@ if user_command:
                 found_song["path"]
             )
             
-            st.session_state.lyrics = get_lyrics(
-                found_song["title"]
+            st.session_state.lyrics = load_song_lyrics(
+                found_song
             )
+
 
             response = (
                 f"⚡ Playing shortest song:\n\n"
@@ -1195,8 +1317,8 @@ if user_command:
                 found_song["path"]
             )
             
-            st.session_state.lyrics = get_lyrics(
-                found_song["title"]
+            st.session_state.lyrics = load_song_lyrics(
+                found_song
             )
 
             response = (
@@ -1228,7 +1350,7 @@ if user_command:
                     st.session_state.song_queue.pop(0)
                 )
             
-                st.session_state.current_song = current_song
+                sync_current_song(current_song)
 
                 
 
@@ -1237,7 +1359,13 @@ if user_command:
 
                 playlist = st.session_state.current_playlist
 
-                if st.session_state.shuffle_mode:
+                if len(playlist) == 1:
+
+                    print("ONLY ONE SONG IN PLAYLIST")
+
+                    current_song = None
+
+                elif st.session_state.shuffle_mode:
 
                     import random
 
@@ -1250,6 +1378,7 @@ if user_command:
                     st.session_state.current_index += 1
 
                     if st.session_state.current_index >= len(playlist):
+
                         st.session_state.current_index = 0
 
                     current_song = playlist[
@@ -1258,16 +1387,41 @@ if user_command:
             
             if current_song:
 
-                st.session_state.current_song = current_song
+                sync_current_song(current_song)
 
                 st.session_state.is_paused = False
+
+                print(
+                    "PLAYLIST LENGTH:",
+                    len(st.session_state.current_playlist)
+                )
+
+                print(
+                    "CURRENT INDEX:",
+                    st.session_state.current_index
+                )
+
+                if current_song.get("source") == "youtube":
+
+                    yt_song = get_audio_stream(
+                        current_song["title"]
+                    )
+
+                    if yt_song:
+
+                        current_song["path"] = yt_song["stream_url"]
+
+                        current_song["thumbnail"] = yt_song.get(
+                            "thumbnail"
+                        )
 
                 play_song(
                     current_song["path"]
                 )
 
-                st.session_state.lyrics = get_lyrics(
-                    current_song["title"]
+
+                st.session_state.lyrics = load_song_lyrics(
+                    current_song
                 )
 
                 response = f"⏭ Playing {current_song['title']}"
@@ -1278,7 +1432,7 @@ if user_command:
                         "content": response
                     }
                 )
-                                                
+                                           
             # Nothing available
             else:
 
@@ -1309,7 +1463,7 @@ if user_command:
                     st.session_state.current_index
                 ]
 
-                st.session_state.current_song = current_song
+                sync_current_song(current_song)
                 
                 st.session_state.is_paused = False
 
@@ -1317,8 +1471,8 @@ if user_command:
                     current_song["path"]
                 )
 
-                st.session_state.lyrics = get_lyrics(
-                    current_song["title"]
+                st.session_state.lyrics = load_song_lyrics(
+                    current_song
                 )
 
                 response = f"⏮ Playing {current_song['title']}"
@@ -1369,13 +1523,13 @@ if user_command:
                     current_song["path"]
                 )
 
-                st.session_state.lyrics = get_lyrics(
-                    current_song["title"]
+                st.session_state.lyrics = load_song_lyrics(
+                    current_song
                 )
 
                 st.session_state.is_paused = False
 
-                st.session_state.current_song = current_song
+                sync_current_song(current_song)
 
                 st.rerun()
 
@@ -1627,8 +1781,8 @@ if user_command:
                     playlist[0]["path"]
                 )
 
-                st.session_state.lyrics = get_lyrics(
-                    playlist[0]["title"]
+                st.session_state.lyrics = load_song_lyrics(
+                    playlist[0]
                 )
 
                 st.session_state.is_paused = False
@@ -1675,8 +1829,8 @@ if user_command:
                             playlist[0]["path"]
                         )
 
-                        st.session_state.lyrics = get_lyrics(
-                            playlist[0]["title"]
+                        st.session_state.lyrics = load_song_lyrics(
+                            playlist[0]
                         )
 
                         st.session_state.is_paused = False
@@ -1737,34 +1891,41 @@ if user_command:
 
                 st.session_state.current_song = liked[0]
 
-                play_song(
-                    liked[0]["path"]
-                )
+                song = liked[0]
 
-                st.session_state.lyrics = get_lyrics(
-                    liked[0]["title"]
-                )
+                if song.get("source") == "youtube":
 
-                st.session_state.is_paused = False
+                    yt_song = get_audio_stream(
+                        song["title"]
+                    )
 
-                response = (
-                    "▶ Playing Liked Songs"
-                )
+                    if yt_song:
 
-            else:
+                        song["path"] = yt_song["stream_url"]
 
-                response = (
-                    "❌ No liked songs found."
-                )
+                        song["thumbnail"] = yt_song.get(
+                            "thumbnail"
+                        )
 
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": response
-                }
-            )
+                        play_song(
+                            song["path"]
+                        )
 
-            st.rerun()
+                        st.session_state.lyrics = load_song_lyrics(
+                            song
+                        )
+
+                else:
+
+                    play_song(
+                        song["path"]
+                    )
+                    
+                    st.session_state.lyrics = load_song_lyrics(
+                        song
+                    )
+
+                st.rerun()
 
 
                     
@@ -1809,8 +1970,8 @@ if user_command:
                    found_song["path"]
                 )
 
-                st.session_state.lyrics = get_lyrics(
-                    found_song["title"]
+                st.session_state.lyrics = load_song_lyrics(
+                    found_song
                 )
 
                 response = (
@@ -1851,20 +2012,32 @@ if user_command:
                         yt_song["stream_url"]
                     )
 
-                    title = yt_song["title"]
+                    song_title = yt_song["title"]
+
                     artist = ""
+                    title = song_title
 
-                    if " - " in title:
-                        artist, title = title.split(" - ", 1)
+                    if " - " in song_title:
 
-                    st.session_state.lyrics = get_lyrics(
+                        artist, title = song_title.split(
+                            " - ",
+                            1
+                        )
+
+                    print("TITLE =", title)
+                    print("ARTIST =", artist)
+
+                    st.session_state.lyrics = get_cached_lyrics(
                         title.strip(),
-                        artist.
-                        strip()
+                        artist.strip()
                     )
+
                     st.session_state.current_song = {
                         "title": yt_song["title"],
                         "path": yt_song["stream_url"],
+
+                        # ADD THIS
+                        "youtube_url": yt_song.get("webpage_url", ""),
                         "source": "youtube",
                         "duration": yt_song.get(
                             "duration",
@@ -1875,6 +2048,11 @@ if user_command:
                         )
                     }
 
+                    st.session_state.current_playlist = [
+                        st.session_state.current_song
+                    ]
+
+                    st.session_state.current_index = 0
                 response = (
                     f"▶ Playing from YouTube: "
                     f"{yt_song['title']}"
@@ -1994,9 +2172,15 @@ with st.sidebar:
             f"▶ Current Position: {current_index + 1}/{len(playlist)}"
         )
 
+        current_title = st.session_state.current_song["title"]
+
         for i, song in enumerate(playlist):
 
-            if i == current_index:
+            is_current = (
+                song["title"] == current_title
+            )
+            
+            if song["title"] == current_title:
 
                 st.markdown(
                 f"""
@@ -2074,7 +2258,7 @@ if st.session_state.current_song is not None:
 
         if " - " in song_title:
 
-             title, artist = song_title.split(
+            artist, title = song_title.split(
                 " - ",
                 1
             )
@@ -2110,7 +2294,7 @@ if st.session_state.current_song is not None:
 
             st.image(
                 album_art,
-                use_container_width=True
+                width="stretch"
             )
 
         else:
@@ -2265,8 +2449,10 @@ if st.session_state.current_song is not None:
 
                 if not exists:
 
+                    liked_song = song.copy()
+
                     st.session_state.liked_songs.append(
-                        song
+                        liked_song
                     )
 
                     save_liked_songs(
@@ -2361,7 +2547,8 @@ lyrics = st.session_state.get(
     "No lyrics available."
 )
 
-print(repr(lyrics))
+
+lyrics = re.sub(r"\[\d+:\d+\.\d+\]", "", lyrics)
 
 with st.container():
 
@@ -2373,19 +2560,36 @@ with st.container():
             rgba(255,79,216,0.18),
             rgba(255,255,255,0.06)
         );
-        border:1px solid rgba(255,79,216,0.35);
-        border-radius:24px;
-        padding:20px;
+
+        border: 1px solid rgba(255,79,216,0.35);
+
+        border-radius: 24px;
+
+        padding: 25px;
+
+        height: 350px;
+
+        overflow-y: auto;
+
+        color: white;
+
+        line-height: 1.8;
+
+        font-size: 16px;
+
+        backdrop-filter: blur(12px);
+
+        box-shadow: 0 8px 25px rgba(255,79,216,0.15);
     }
     </style>
-    """,
+        """,
     unsafe_allow_html=True)
 
     st.markdown(
-        f"""
-        <div class="lyrics-box">
-        <pre>{lyrics}</pre>
-        </div>
-        """,
-        unsafe_allow_html=True
+    f"""
+    <div class="lyrics-box">
+        {lyrics.replace(chr(10), '<br>')}
+    </div>
+    """,
+    unsafe_allow_html=True
     )
