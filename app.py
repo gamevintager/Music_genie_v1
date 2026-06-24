@@ -2238,7 +2238,7 @@ with st.sidebar:
 # --------------------------
 
 st_autorefresh(
-    interval=1000,
+    interval=1500,
     key="music_player_refresh"
 )
 
@@ -2481,7 +2481,34 @@ if st.session_state.current_song is not None:
         1.0
     )
 
-    st.progress(progress)
+    st.markdown(
+        f"""
+        <div style="
+            width:100%;
+            height:10px;
+            background:#2a1638;
+            border-radius:20px;
+            overflow:hidden;
+            margin-top:10px;
+            margin-bottom:10px;
+        ">
+            <div style="
+                width:{progress*100:.1f}%;
+                height:100%;
+                background:linear-gradient(
+                    90deg,
+                    #ff4fd8,
+                    #ff80ea
+                );
+                border-radius:20px;
+                transition:width 0.5s ease;
+            ">
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 
     t1, t2 = st.columns(2)
 
@@ -2501,16 +2528,7 @@ if st.session_state.current_song is not None:
             unsafe_allow_html=True
         )         
 
-    st.markdown("""
-    <style>
-
-    .stProgress > div > div {
-        height:8px;
-        border-radius:20px;
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
+    
     
 if st.session_state.shuffle_mode:
 
