@@ -17,6 +17,16 @@ def song_ended(event):
     
     song_end_flag = True
 
+def seek_to(seconds):
+
+    global player
+
+    if player:
+
+        player.set_time(
+            int(seconds * 1000)
+        )
+
 def has_song_ended():
 
     global song_end_flag
