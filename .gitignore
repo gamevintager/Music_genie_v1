@@ -1,5 +1,33 @@
+# Python
 __pycache__/
 *.pyc
-.env
+
+# Virtual environments
 venv/
+.venv/
+
+# Environment variables
+.env
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Python cache
+.pytest_cache/
+
+# Streamlit cache
+.streamlit/
+
+# Local music files
 *.mp3
+
+# Generated playlists (optional)
+MusicGenie/
+Playlists/
+
+# OS files
+.DS_Store
+Thumbs.db
