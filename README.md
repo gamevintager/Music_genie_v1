@@ -3,6 +3,8 @@
 > An AI-powered music player built with Python and Streamlit that combines local music playback, YouTube streaming, smart playlists, lyrics, album art, and an intelligent music assistant.
 
 ---
+> **Note:** Music Genie requires **VLC Media Player** to be installed.
+> Download it from: https://www.videolan.org/vlc/
 
 ## 📸 Preview
 
